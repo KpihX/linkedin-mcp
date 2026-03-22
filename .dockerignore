@@ -1,0 +1,15 @@
+.git/
+.agent/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+COPILOT.md
+VIBE.md
+.env
+.env.*
+!.env.example
+deploy/docker-compose.override.yml
+node_modules/
+coverage/
+*.log
+TODO.md

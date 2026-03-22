@@ -1,0 +1,18 @@
+{
+  "server": {
+    "state_directory": "~/.mcps/linkedin",
+    "http_host": "127.0.0.1",
+    "http_port": 8095,
+    "http_mcp_path": "/mcp",
+    "public_base_url": "https://linkedin.kpihx-labs.com",
+    "fallback_base_url": "https://linkedin.homelab"
+  },
+  "oauth": {
+    "redirect_port": 3000,
+    "redirect_uri": "http://localhost:3000/callback",
+    "scopes": ["openid", "profile", "email", "w_member_social"]
+  },
+  "logging": {
+    "level": "error"
+  }
+}

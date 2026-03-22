@@ -1,0 +1,13 @@
+# Copy to docker-compose.override.yml and fill in your secrets.
+# Never commit this file.
+
+name: linkedin-mcp
+
+services:
+  linkedin-mcp:
+    environment:
+      LINKEDIN_CLIENT_ID: "your_client_id_here"
+      LINKEDIN_CLIENT_SECRET: "your_client_secret_here"
+      # Optional: pre-set token (avoids running auth flow on the server)
+      # LINKEDIN_ACCESS_TOKEN: "your_access_token_here"
+      LINKEDIN_MCP_LOG_LEVEL: "info"

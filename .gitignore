@@ -1,0 +1,22 @@
+node_modules/
+bun.lock
+.env
+.env.*
+!.env.example
+*.log
+
+# Agent artifacts
+.agent/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+COPILOT.md
+VIBE.md
+
+# Token and state (never commit)
+~/.mcps/
+deploy/.env
+deploy/docker-compose.override.yml
+
+# Coverage
+coverage/

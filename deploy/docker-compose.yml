@@ -1,0 +1,51 @@
+name: linkedin-mcp
+
+services:
+  linkedin-mcp:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: linkedin-mcp
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - linkedin_mcp_data:/data
+    networks:
+      - proxy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "fetch('http://127.0.0.1:8095/health').then((r) => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.linkedin-mcp-private.rule=Host(`linkedin.kpihx-labs.com`)"
+      - "traefik.http.routers.linkedin-mcp-private.entrypoints=websecure"
+      - "traefik.http.routers.linkedin-mcp-private.tls=true"
+      - "traefik.http.routers.linkedin-mcp-private.tls.certresolver=myresolver"
+      - "traefik.http.routers.linkedin-mcp-private.middlewares=linkedin-mcp-headers"
+      - "traefik.http.routers.linkedin-mcp-fallback.rule=Host(`linkedin.homelab`)"
+      - "traefik.http.routers.linkedin-mcp-fallback.entrypoints=websecure"
+      - "traefik.http.routers.linkedin-mcp-fallback.tls=true"
+      - "traefik.http.routers.linkedin-mcp-fallback.middlewares=linkedin-mcp-headers"
+      - "traefik.http.services.linkedin-mcp.loadbalancer.server.port=8095"
+      - "traefik.http.middlewares.linkedin-mcp-headers.headers.browserxssfilter=true"
+      - "traefik.http.middlewares.linkedin-mcp-headers.headers.contenttypenosniff=true"
+      - "traefik.http.middlewares.linkedin-mcp-headers.headers.framedeny=true"
+
+networks:
+  proxy:
+    external: true
+
+volumes:
+  linkedin_mcp_data:
+    name: deploy_linkedin_mcp_data

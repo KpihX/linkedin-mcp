@@ -1,0 +1,7 @@
+.agent/
+.git/
+deploy/
+coverage/
+*.log
+.env
+TODO.md

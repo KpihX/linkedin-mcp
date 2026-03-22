@@ -1,0 +1,41 @@
+{
+  "name": "linkedin-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for LinkedIn — intent-first posting, profile management, and professional networking over stdio and HTTP.",
+  "main": "src/main.js",
+  "bin": {
+    "linkedin-mcp": "src/main.js",
+    "linkedin-admin": "src/admin.js"
+  },
+  "scripts": {
+    "start": "bun src/main.js serve",
+    "serve:http": "bun src/main.js serve-http",
+    "admin": "bun src/admin.js",
+    "auth": "bun src/admin.js auth",
+    "status": "bun src/admin.js status",
+    "test": "bun test",
+    "test:watch": "bun test --watch"
+  },
+  "keywords": [
+    "linkedin",
+    "mcp",
+    "model-context-protocol",
+    "oauth",
+    "professional-network",
+    "automation"
+  ],
+  "author": "Ivann KAMDEM <kapoivha@gmail.com>",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "bun": ">=1.0.0",
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "commander": "^13.1.0",
+    "express": "^5.2.1",
+    "pino": "^10.3.1"
+  },
+  "devDependencies": {}
+}
