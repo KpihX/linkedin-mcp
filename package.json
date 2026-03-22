@@ -1,6 +1,6 @@
 {
   "name": "k-linkedin-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "MCP server for LinkedIn — intent-first posting, profile management, and professional networking over stdio and HTTP.",
   "main": "src/main.js",
   "bin": {

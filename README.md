@@ -34,29 +34,30 @@ linkedin-mcp/
 │   ├── http_app.js      ← Express HTTP app: /health /admin/* /mcp
 │   ├── .env.example     ← required secrets template
 │   └── admin/
-│       ├── cli.js       ← Commander CLI (auth / status / logout / logs / health / urls / guide)
-│       ├── service.js   ← shared text helpers (statusSummaryText, healthSummaryText, …)
-│       ├── oauth.js     ← LinkedIn OAuth 2.0 + OIDC flow
-│       └── telegram.js  ← optional Telegram bot admin
+│       ├── cli.js       ← Commander CLI (auth / status / logout / logs / health / urls
+│       │                               / client-id / client-secret / token)
+│       ├── service.js   ← unified admin kernel — single source of truth for all surfaces
+│       ├── oauth.js     ← LinkedIn OAuth 2.0 + OIDC flow (configurable callback port)
+│       └── telegram.js  ← optional Telegram bot admin (15 commands)
 ├── tools/
 │   ├── registry.js      ← listTools() + callTool()
 │   ├── guide.js         ← linkedin_guide
 │   ├── profile.js       ← linkedin_get_profile, linkedin_auth_status
 │   ├── posts.js         ← linkedin_create_post, linkedin_create_image_post, linkedin_delete_post
 │   └── social.js        ← linkedin_like_post, linkedin_create_comment
-├── tests/               ← bun test (41 tests, 0 deps on live API)
+├── tests/               ← bun test (61 tests, 0 deps on live API)
 ├── deploy/
 │   ├── docker-compose.yml
 │   └── docker-compose.override.example.yml
 ├── Dockerfile
 ├── .gitlab-ci.yml
-└── config.json          ← non-secret defaults (port 8095, state dir, scopes)
+└── config.json          ← non-secret defaults (port 8095, OAuth port 3001, state dir, scopes)
 ```
 
 **Transport strategy:**
 
 ```
-Agent / Claude / Gemini
+Agent / Claude / Gemini / Codex / Copilot / Vibe
          │
          ├─── HTTP (homelab) ──→  https://linkedin.kpihx-labs.com/mcp   (primary)
          └─── stdio (local)  ──→  ~/.bun/bin/linkedin-mcp serve         (fallback)
@@ -84,37 +85,59 @@ Agent / Claude / Gemini
 ### CLI (`linkedin-admin`)
 
 ```bash
-linkedin-admin auth          # Run OAuth flow — opens browser, saves token
-linkedin-admin status        # Token status + profile
-linkedin-admin status --json # Machine-readable JSON
-linkedin-admin logout        # Clear saved token
-linkedin-admin logs --lines 50
-linkedin-admin health        # HTTP server reachability
-linkedin-admin urls          # All public/private endpoints
-linkedin-admin guide         # Full help text
+# Authentication
+linkedin-admin auth [--port N]     # OAuth flow — opens browser, saves token (default port 3001)
+linkedin-admin token set <value>   # Set access token directly (fetches profile, no browser)
+linkedin-admin token unset         # Clear stored token (same as logout)
+linkedin-admin logout              # Clear stored token
+
+# Credential management (stored in admin env file)
+linkedin-admin client-id set <v>   # Set LINKEDIN_CLIENT_ID
+linkedin-admin client-id unset     # Clear LINKEDIN_CLIENT_ID
+linkedin-admin client-secret set <v>
+linkedin-admin client-secret unset
+
+# Status & observability
+linkedin-admin status              # Credentials table + token summary
+linkedin-admin status --json       # Machine-readable JSON
+linkedin-admin logs [--lines 50]   # Tail admin log
+linkedin-admin health              # HTTP server reachability
+linkedin-admin urls                # All public/private endpoints
 ```
 
 ### HTTP admin
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /health` | Liveness probe |
-| `GET /admin/status` | Token status + Telegram runtime state |
-| `GET /admin/help` | All commands reference |
-| `GET /admin/logs?lines=50` | Recent admin log tail |
-| `POST /mcp` | MCP Streamable HTTP transport |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Liveness probe |
+| `/admin/status` | GET | Full runtime status (token + Telegram state) |
+| `/admin/help` | GET | All commands reference |
+| `/admin/logs?lines=50` | GET | Recent admin log tail |
+| `/admin/client-id/set` | POST | Body: `{ "value": "..." }` |
+| `/admin/client-id/unset` | POST | Clear LINKEDIN_CLIENT_ID |
+| `/admin/client-secret/set` | POST | Body: `{ "value": "..." }` |
+| `/admin/client-secret/unset` | POST | Clear LINKEDIN_CLIENT_SECRET |
+| `/admin/token/set` | POST | Body: `{ "value": "..." }` — sets token + fetches profile |
+| `/admin/token/unset` | POST | Clear stored token |
+| `/mcp` | POST/GET/DELETE | MCP Streamable HTTP transport |
 
 ### Telegram bot (optional)
 
-Set `TELEGRAM_LINKEDIN_TOKEN` + `TELEGRAM_CHAT_IDS` and the server polls every 5 s.
+Set `TELEGRAM_LINKEDIN_HOMELAB_TOKEN` + `TELEGRAM_CHAT_IDS` — server polls every 5 s.
 
 | Command | Action |
 |---------|--------|
 | `/start` `/help` | Full command reference |
-| `/status` | Token + service status |
+| `/status` | Credentials + token status |
 | `/health` | HTTP server health |
 | `/urls` | Endpoint map |
 | `/logs [n]` | Last n admin log lines (default 20) |
+| `/token_set <value>` | Set access token (fetches profile) |
+| `/token_unset` | Clear stored token |
+| `/client_id_set <value>` | Set LINKEDIN_CLIENT_ID |
+| `/client_id_unset` | Clear LINKEDIN_CLIENT_ID |
+| `/client_secret_set <value>` | Set LINKEDIN_CLIENT_SECRET |
+| `/client_secret_unset` | Clear LINKEDIN_CLIENT_SECRET |
 
 ---
 
@@ -124,14 +147,21 @@ Set `TELEGRAM_LINKEDIN_TOKEN` + `TELEGRAM_CHAT_IDS` and the server polls every 5
 
 1. Go to [LinkedIn Developer Portal](https://developer.linkedin.com)
 2. Create an app → add products: **"Sign In with LinkedIn using OpenID Connect"** + **"Share on LinkedIn"**
-3. Set redirect URI: `http://localhost:3000/callback`
+3. Set redirect URI: `http://localhost:3001/callback`
 4. Note `Client ID` and `Client Secret`
 
 ### 2. Configure secrets
 
 ```bash
-cp src/.env.example .env
+# Option A — via admin CLI (written to admin env file)
+linkedin-admin client-id set <your_client_id>
+linkedin-admin client-secret set <your_client_secret>
+
+# Option B — via .env file
+cp src/.env.example src/.env
 # Fill in LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET
+
+# Option C — via bw-env / kshrc (injected at login shell)
 ```
 
 ### 3. Install & authenticate
@@ -140,8 +170,14 @@ cp src/.env.example .env
 bun install
 bun link              # editable install: ~/.bun/bin/linkedin-mcp + linkedin-admin
 
-linkedin-admin auth   # opens browser → authorizes → saves token
-linkedin-admin status # verify token is valid
+# Full OAuth flow (browser consent)
+linkedin-admin auth   # default port 3001
+linkedin-admin auth --port 3002  # if 3001 is busy
+
+# Or set access token directly (server/headless contexts)
+linkedin-admin token set <your_access_token>
+
+linkedin-admin status # verify credentials and token
 ```
 
 ### 4. Start MCP server
@@ -159,9 +195,9 @@ linkedin-mcp serve-http
 ## Docker / Homelab deployment
 
 ```bash
-cp deploy/docker-compose.yml docker-compose.yml
-cp deploy/docker-compose.override.example.yml docker-compose.override.yml
-# Edit docker-compose.override.yml with your secrets
+cd deploy
+cp docker-compose.override.example.yml docker-compose.override.yml
+# Edit override with your secrets (or rely on CI env injection)
 
 docker compose up -d
 ```
@@ -169,6 +205,10 @@ docker compose up -d
 Traefik labels in `deploy/docker-compose.yml` expose:
 - `https://linkedin.kpihx-labs.com` (primary private trusted route)
 - `https://linkedin.homelab` (fallback)
+
+The container persists all state in `/data` (Docker volume):
+- `/data/state/token.json` — OAuth token
+- `/data/linkedin-admin.env` — credentials written by `token set` / `client-id set`
 
 ---
 
@@ -192,11 +232,9 @@ Traefik labels in `deploy/docker-compose.yml` expose:
 ```json
 {
   "name": "linkedin-mcp",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "mcpServers": {
-    "linkedin-mcp": {
-      "httpUrl": "https://linkedin.kpihx-labs.com/mcp"
-    },
+    "linkedin-mcp": { "httpUrl": "https://linkedin.kpihx-labs.com/mcp" },
     "linkedin-mcp--fallback": {
       "command": "/home/kpihx/.bun/bin/linkedin-mcp",
       "args": ["serve"]
@@ -205,12 +243,49 @@ Traefik labels in `deploy/docker-compose.yml` expose:
 }
 ```
 
+### Codex (`~/.codex/config.toml`)
+
+```toml
+[mcp_servers.linkedin_mcp]
+url = "https://linkedin.kpihx-labs.com/mcp"
+
+[mcp_servers.linkedin_mcp_fallback]
+command = "/home/kpihx/.bun/bin/linkedin-mcp"
+args = ["serve"]
+```
+
+### Copilot (`~/.copilot/mcp-config.json`)
+
+```json
+"linkedin_mcp": { "type": "http", "url": "https://linkedin.kpihx-labs.com/mcp" },
+"linkedin_mcp_fallback": {
+  "type": "stdio",
+  "command": "/home/kpihx/.bun/bin/linkedin-mcp",
+  "args": ["serve"]
+}
+```
+
+### Vibe (`~/.vibe/config.toml`)
+
+```toml
+[[mcp_servers]]
+name = "linkedin"
+transport = "http"
+url = "https://linkedin.kpihx-labs.com/mcp"
+
+[[mcp_servers]]
+name = "linkedin_fallback"
+transport = "stdio"
+command = "/home/kpihx/.bun/bin/linkedin-mcp"
+args = ["serve"]
+```
+
 ---
 
 ## Tests
 
 ```bash
-bun test           # 41 tests, 5 files, 0 live API calls
+bun test           # 61 tests, 5 files, 0 live API calls
 bun test --watch   # watch mode
 ```
 
@@ -223,10 +298,13 @@ All tests use mocked `fetch` and temp directories — no credentials needed.
 LinkedIn personal OAuth tokens expire in **60 days**. There is no refresh token for non-Partner apps.
 
 ```
-Day 0   →  linkedin-admin auth   (OAuth flow, browser consent)
-Day 55+ →  linkedin-admin status  (shows days_left, warns if < 7)
+Day 0   →  linkedin-admin auth          (OAuth flow, browser consent)
+           OR  linkedin-admin token set  (direct token, headless/server)
+Day 55+ →  linkedin-admin status        (shows days_left)
 Day 60  →  token invalid, re-run auth
 ```
+
+Both flows produce a complete `token.json` with `member_id` populated — required for all posting tools.
 
 ---
 
