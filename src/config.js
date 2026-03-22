@@ -50,8 +50,8 @@ const DEFAULTS = {
     fallback_base_url:"https://linkedin.homelab",
   },
   oauth: {
-    redirect_port: 3001,
-    redirect_uri:  "http://localhost:3001/callback",
+    redirect_port: 3000,
+    redirect_uri:  "http://localhost:3000/callback",
     scopes:        ["openid", "profile", "email", "w_member_social"],
   },
   logging: {

@@ -2,6 +2,21 @@
 
 ---
 
+## [0.2.0] — 2026-03-22
+
+### Added
+- [x] Unified credential management — CLI, HTTP, Telegram: `client-id set/unset`, `client-secret set/unset`, `token set/unset`
+- [x] Admin env file pattern (`LINKEDIN_ADMIN_ENV_FILE`, default `/data/linkedin-admin.env`) — persists credentials across restarts
+- [x] `auth --port N` option to avoid `EADDRINUSE` (default port moved to 3001 via `config.json`)
+- [x] OAuth callback port externalized to `config.json` (not hardcoded — DEFAULTS remain 3000 as last-resort fallback)
+- [x] New HTTP POST routes: `/admin/{client-id,client-secret,token}/{set,unset}`
+- [x] New Telegram commands: `/token_set`, `/token_unset`, `/client_id_set`, `/client_id_unset`, `/client_secret_set`, `/client_secret_unset`
+- [x] Status table cleaned: shows `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `OAuth Token` — Telegram token removed
+- [x] 61 tests (18 new) — all pass
+
+### Fixed
+- [x] `TELEGRAM_LINKEDIN_TOKEN` → `TELEGRAM_LINKEDIN_HOMELAB_TOKEN` reference in HTTP status handler
+
 ## [0.1.0] — 2026-03-22
 
 ### Added
