@@ -4,6 +4,25 @@
 
 "use strict";
 
+const os   = require("os");
+const path = require("path");
+const fs   = require("fs");
+
+// Use a temp state dir so tests don't touch real state
+const TEST_STATE_DIR = path.join(os.tmpdir(), `linkedin-mcp-tg-test-${Date.now()}`);
+
+beforeAll(() => {
+  process.env.LINKEDIN_STATE_DIR      = TEST_STATE_DIR;
+  process.env.LINKEDIN_ADMIN_ENV_FILE = path.join(TEST_STATE_DIR, "linkedin-admin.env");
+  fs.mkdirSync(TEST_STATE_DIR, { recursive: true });
+});
+
+afterAll(() => {
+  delete process.env.LINKEDIN_STATE_DIR;
+  delete process.env.LINKEDIN_ADMIN_ENV_FILE;
+  fs.rmSync(TEST_STATE_DIR, { recursive: true, force: true });
+});
+
 const { dispatchTelegramCommand, telegramAdminEnabled } = require("../src/admin/telegram");
 
 describe("telegramAdminEnabled", () => {
@@ -26,7 +45,7 @@ describe("telegramAdminEnabled", () => {
   });
 });
 
-describe("dispatchTelegramCommand", () => {
+describe("dispatchTelegramCommand — read commands", () => {
   test("/help returns help text", async () => {
     const reply = await dispatchTelegramCommand("/help", []);
     expect(reply).toContain("linkedin-admin");
@@ -61,5 +80,68 @@ describe("dispatchTelegramCommand", () => {
   test("unknown command returns fallback", async () => {
     const reply = await dispatchTelegramCommand("/unknowncmd", []);
     expect(reply).toMatch(/Unknown command/i);
+  });
+});
+
+describe("dispatchTelegramCommand — credential management", () => {
+  afterEach(() => {
+    delete process.env.LINKEDIN_CLIENT_ID;
+    delete process.env.LINKEDIN_CLIENT_SECRET;
+  });
+
+  test("/client_id_set sets the client ID", async () => {
+    const reply = await dispatchTelegramCommand("/client_id_set", ["my-client-id"]);
+    expect(reply).toContain("set successfully");
+    expect(process.env.LINKEDIN_CLIENT_ID).toBe("my-client-id");
+  });
+
+  test("/client_id_set without value returns usage", async () => {
+    const reply = await dispatchTelegramCommand("/client_id_set", []);
+    expect(reply).toContain("Usage:");
+  });
+
+  test("/client_id_unset clears the client ID", async () => {
+    process.env.LINKEDIN_CLIENT_ID = "to-remove";
+    const reply = await dispatchTelegramCommand("/client_id_unset", []);
+    expect(reply).toContain("cleared");
+    expect(process.env.LINKEDIN_CLIENT_ID).toBeUndefined();
+  });
+
+  test("/client_secret_set sets the client secret", async () => {
+    const reply = await dispatchTelegramCommand("/client_secret_set", ["my-secret"]);
+    expect(reply).toContain("set successfully");
+    expect(process.env.LINKEDIN_CLIENT_SECRET).toBe("my-secret");
+  });
+
+  test("/client_secret_set without value returns usage", async () => {
+    const reply = await dispatchTelegramCommand("/client_secret_set", []);
+    expect(reply).toContain("Usage:");
+  });
+
+  test("/client_secret_unset clears the client secret", async () => {
+    process.env.LINKEDIN_CLIENT_SECRET = "to-remove";
+    const reply = await dispatchTelegramCommand("/client_secret_unset", []);
+    expect(reply).toContain("cleared");
+    expect(process.env.LINKEDIN_CLIENT_SECRET).toBeUndefined();
+  });
+
+  test("/token_set sets the access token", async () => {
+    const reply = await dispatchTelegramCommand("/token_set", ["my-access-token"]);
+    expect(reply).toContain("set successfully");
+    const tokenPath = path.join(TEST_STATE_DIR, "token.json");
+    expect(fs.existsSync(tokenPath)).toBe(true);
+  });
+
+  test("/token_set without value returns usage", async () => {
+    const reply = await dispatchTelegramCommand("/token_set", []);
+    expect(reply).toContain("Usage:");
+  });
+
+  test("/token_unset clears the access token", async () => {
+    await dispatchTelegramCommand("/token_set", ["temp-token"]);
+    const reply = await dispatchTelegramCommand("/token_unset", []);
+    expect(reply).toContain("cleared");
+    const tokenPath = path.join(TEST_STATE_DIR, "token.json");
+    expect(fs.existsSync(tokenPath)).toBe(false);
   });
 });

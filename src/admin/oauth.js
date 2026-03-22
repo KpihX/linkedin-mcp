@@ -1,12 +1,14 @@
 /**
  * linkedin-mcp — OAuth 2.0 flow manager.
  *
- * Launches a local HTTP server on redirect_port (default 3000) to catch
+ * Launches a local HTTP server on a configurable port (default 3000) to catch
  * the authorization code from LinkedIn, then exchanges it for an access token.
  *
  * Usage:
  *   const { runOAuthFlow } = require("./oauth");
- *   const tokenData = await runOAuthFlow(config);
+ *   const tokenData = await runOAuthFlow(config, onUrl);
+ *   // or with port override:
+ *   const tokenData = await runOAuthFlow(config, onUrl, 8080);
  */
 
 "use strict";
@@ -21,11 +23,11 @@ const LI_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
 /**
  * Build the LinkedIn OAuth authorization URL.
  */
-function buildAuthUrl(config, state) {
+function buildAuthUrl(config, state, redirectUri) {
   const params = new URLSearchParams({
     response_type: "code",
     client_id: config.oauth.client_id,
-    redirect_uri: config.oauth.redirect_uri,
+    redirect_uri: redirectUri,
     state,
     scope: config.oauth.scopes.join(" "),
   });
@@ -35,11 +37,11 @@ function buildAuthUrl(config, state) {
 /**
  * Exchange an authorization code for an access token.
  */
-async function exchangeCode(config, code) {
+async function exchangeCode(config, code, redirectUri) {
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code,
-    redirect_uri: config.oauth.redirect_uri,
+    redirect_uri: redirectUri,
     client_id: config.oauth.client_id,
     client_secret: config.oauth.client_secret,
   });
@@ -68,18 +70,19 @@ async function fetchProfile(accessToken) {
 
 /**
  * Run the full OAuth flow:
- *  1. Start local callback server
+ *  1. Start local callback server on the given port
  *  2. Return the auth URL for the user to open
  *  3. Wait for callback with code
  *  4. Exchange code → token
  *  5. Fetch profile → enrich token
  *  6. Persist token to disk
  *
- * @param {object} config
- * @param {function} onUrl  - Called with the auth URL string so caller can print/open it
+ * @param {object}   config
+ * @param {function} onUrl        - Called with the auth URL string so caller can print/open it
+ * @param {number}   [portOverride] - Override the callback port (default: config.oauth.redirect_port || 3000)
  * @returns {Promise<object>} tokenData
  */
-function runOAuthFlow(config, onUrl) {
+function runOAuthFlow(config, onUrl, portOverride) {
   return new Promise((resolve, reject) => {
     if (!config.oauth.client_id || !config.oauth.client_secret) {
       return reject(new Error(
@@ -88,9 +91,10 @@ function runOAuthFlow(config, onUrl) {
       ));
     }
 
-    const state  = crypto.randomBytes(16).toString("hex");
-    const port   = config.oauth.redirect_port || 3000;
-    const authUrl = buildAuthUrl(config, state);
+    const port        = portOverride || config.oauth.redirect_port || 3000;
+    const redirectUri = `http://localhost:${port}/callback`;
+    const state       = crypto.randomBytes(16).toString("hex");
+    const authUrl     = buildAuthUrl(config, state, redirectUri);
 
     const server = http.createServer(async (req, res) => {
       const url = new URL(req.url, `http://localhost:${port}`);
@@ -125,7 +129,7 @@ function runOAuthFlow(config, onUrl) {
       }
 
       try {
-        const tokenData = await exchangeCode(config, code);
+        const tokenData = await exchangeCode(config, code, redirectUri);
         const profile   = await fetchProfile(tokenData.access_token);
         const enriched  = {
           ...tokenData,

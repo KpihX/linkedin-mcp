@@ -16,6 +16,7 @@ RUN chmod +x /app/src/main.js /app/src/admin.js /app/src/admin/cli.js \
 
 ENV NODE_ENV=production
 ENV LINKEDIN_STATE_DIR=/data/state
+ENV LINKEDIN_ADMIN_ENV_FILE=/data/linkedin-admin.env
 ENV LINKEDIN_MCP_HTTP_HOST=0.0.0.0
 ENV LINKEDIN_MCP_HTTP_PORT=8095
 ENV LINKEDIN_MCP_HTTP_PATH=/mcp

@@ -2,13 +2,19 @@
  * linkedin-mcp — HTTP surface.
  *
  * Routes:
- *   GET  /health           liveness + token status
- *   GET  /admin/status     detailed runtime status
- *   GET  /admin/help       capability reference
- *   GET  /admin/logs       recent admin log lines (?lines=N)
- *   POST /mcp              MCP streamable-HTTP transport
- *   GET  /mcp              SSE stream (same session)
- *   DELETE /mcp            session teardown
+ *   GET  /health                     liveness + token status
+ *   GET  /admin/status               detailed runtime status
+ *   GET  /admin/help                 capability reference
+ *   GET  /admin/logs                 recent admin log lines (?lines=N)
+ *   POST /admin/client-id/set        body: { "value": "..." }
+ *   POST /admin/client-id/unset
+ *   POST /admin/client-secret/set    body: { "value": "..." }
+ *   POST /admin/client-secret/unset
+ *   POST /admin/token/set            body: { "value": "..." }
+ *   POST /admin/token/unset
+ *   POST /mcp                        MCP streamable-HTTP transport
+ *   GET  /mcp                        SSE stream (same session)
+ *   DELETE /mcp                      session teardown
  */
 
 "use strict";
@@ -25,7 +31,13 @@ const {
   appendAdminLog,
   getLogsText,
   healthSummaryText,
+  setAccessToken,
+  setClientId,
+  setClientSecret,
   statusSummaryText,
+  unsetAccessToken,
+  unsetClientId,
+  unsetClientSecret,
   urlsSummary,
 } = require("./admin/service");
 const { startTelegramAdmin, telegramAdminEnabled, telegramAdminRuntimeStatus } = require("./admin/telegram");
@@ -72,7 +84,7 @@ function adminStatusHandler(config) {
       },
       telegram_admin: {
         supported: true,
-        token_env: "TELEGRAM_LINKEDIN_TOKEN",
+        token_env: "TELEGRAM_LINKEDIN_HOMELAB_TOKEN",
         allowed_chat_ids_env: "TELEGRAM_CHAT_IDS",
         configured: telegramAdminEnabled(),
         enabled: telegramAdminEnabled(),
@@ -115,6 +127,56 @@ function adminLogsHandler() {
   };
 }
 
+// ── Credential POST handlers ──────────────────────────────────────────────────
+
+function adminClientIdSetHandler() {
+  return (req, res) => {
+    const { value } = req.body || {};
+    if (!value) return res.status(400).json({ ok: false, error: "Missing 'value' in request body" });
+    setClientId(String(value));
+    res.json({ ok: true, action: "client-id set" });
+  };
+}
+
+function adminClientIdUnsetHandler() {
+  return (_req, res) => {
+    unsetClientId();
+    res.json({ ok: true, action: "client-id unset" });
+  };
+}
+
+function adminClientSecretSetHandler() {
+  return (req, res) => {
+    const { value } = req.body || {};
+    if (!value) return res.status(400).json({ ok: false, error: "Missing 'value' in request body" });
+    setClientSecret(String(value));
+    res.json({ ok: true, action: "client-secret set" });
+  };
+}
+
+function adminClientSecretUnsetHandler() {
+  return (_req, res) => {
+    unsetClientSecret();
+    res.json({ ok: true, action: "client-secret unset" });
+  };
+}
+
+function adminTokenSetHandler() {
+  return (req, res) => {
+    const { value } = req.body || {};
+    if (!value) return res.status(400).json({ ok: false, error: "Missing 'value' in request body" });
+    setAccessToken(String(value));
+    res.json({ ok: true, action: "token set" });
+  };
+}
+
+function adminTokenUnsetHandler() {
+  return (_req, res) => {
+    unsetAccessToken();
+    res.json({ ok: true, action: "token unset" });
+  };
+}
+
 // ── App factory ───────────────────────────────────────────────────────────────
 
 async function createHttpApp() {
@@ -125,11 +187,21 @@ async function createHttpApp() {
 
   app.use(express.json({ limit: "1mb" }));
 
+  // ── Read routes ───────────────────────────────────────────────────────────
   app.get("/health",       healthHandler(config));
   app.get("/admin/status", adminStatusHandler(config));
   app.get("/admin/help",   adminHelpHandler(config));
   app.get("/admin/logs",   adminLogsHandler());
 
+  // ── Credential management routes ──────────────────────────────────────────
+  app.post("/admin/client-id/set",        adminClientIdSetHandler());
+  app.post("/admin/client-id/unset",      adminClientIdUnsetHandler());
+  app.post("/admin/client-secret/set",    adminClientSecretSetHandler());
+  app.post("/admin/client-secret/unset",  adminClientSecretUnsetHandler());
+  app.post("/admin/token/set",            adminTokenSetHandler());
+  app.post("/admin/token/unset",          adminTokenUnsetHandler());
+
+  // ── MCP transport ─────────────────────────────────────────────────────────
   const mcpPost = async (req, res) => {
     const sessionId = req.headers["mcp-session-id"];
     try {

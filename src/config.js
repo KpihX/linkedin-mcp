@@ -30,6 +30,7 @@ const ENV_VARS = {
   telegramToken:      "TELEGRAM_LINKEDIN_HOMELAB_TOKEN",
   telegramChatIds:    "TELEGRAM_CHAT_IDS",
   stateDir:           "LINKEDIN_STATE_DIR",
+  adminEnvFile:       "LINKEDIN_ADMIN_ENV_FILE",
   httpHost:           "LINKEDIN_MCP_HTTP_HOST",
   httpPort:           "LINKEDIN_MCP_HTTP_PORT",
   httpPath:           "LINKEDIN_MCP_HTTP_PATH",

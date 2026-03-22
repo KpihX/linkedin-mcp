@@ -3,13 +3,18 @@
  * linkedin-mcp — Admin CLI (linkedin-admin).
  *
  * Commands:
- *   auth             Start OAuth 2.0 flow (opens browser, saves token)
- *   status [--json]  Show token + secrets status table
- *   logout           Clear stored token
- *   logs [--lines N] Tail the admin log
- *   health           Show HTTP endpoint URLs
- *   urls             Show all public URLs
- *   guide            Show admin capabilities
+ *   auth [--port N]          Start OAuth 2.0 flow (opens browser, saves token)
+ *   status [--json]          Show credentials + token status table
+ *   logout                   Clear stored token
+ *   logs [--lines N]         Tail the admin log
+ *   health                   Show HTTP endpoint URLs
+ *   urls                     Show all public URLs
+ *   client-id set <value>    Set LINKEDIN_CLIENT_ID in admin env file
+ *   client-id unset          Clear LINKEDIN_CLIENT_ID from admin env file
+ *   client-secret set <v>    Set LINKEDIN_CLIENT_SECRET in admin env file
+ *   client-secret unset      Clear LINKEDIN_CLIENT_SECRET from admin env file
+ *   token set <value>        Set access token directly (bypasses OAuth)
+ *   token unset              Clear stored access token (logout)
  */
 
 "use strict";
@@ -20,12 +25,19 @@ const { loadConfig, resolveEnv, ENV_VARS } = require("../config");
 const { tokenSummary, clearToken }         = require("../token");
 const { runOAuthFlow }                     = require("./oauth");
 const {
+  adminEnvFilePath,
   adminHelpText,
   appendAdminLog,
   getLogsText,
   getSecretsStatus,
   healthSummaryText,
+  setAccessToken,
+  setClientId,
+  setClientSecret,
   statusSummaryText,
+  unsetAccessToken,
+  unsetClientId,
+  unsetClientSecret,
   urlsSummary,
 } = require("./service");
 
@@ -45,7 +57,6 @@ function _printStatusTable(title, rows) {
     { key: "masked",   label: "Value (masked)",  width: 16 },
     { key: "source",   label: "Source",          width: 24 },
   ];
-  const sep  = "─";
   const tl = "╭", tr = "╮", bl = "╰", br = "╯";
   const ml = "├", mr = "┤", cross = "┼";
   const vl = "│";
@@ -86,14 +97,14 @@ function _printStatusTable(title, rows) {
   console.log(header);
   console.log(mid);
 
-  rows.forEach((r) => {
+  rows.forEach((r, idx) => {
     let row = vl;
     row += ` ${_pad(r.variable, cols[0].width)} ${vl}`;
     row += ` ${_pad(r.status,   cols[1].width)} ${vl}`;
     row += ` ${_pad(r.masked,   cols[2].width)} ${vl}`;
     row += ` ${_pad(r.source,   cols[3].width)} ${vl}`;
     console.log(row);
-    if (rows.indexOf(r) < rows.length - 1) console.log(mid);
+    if (idx < rows.length - 1) console.log(mid);
   });
 
   console.log(bot);
@@ -104,7 +115,7 @@ function _printStatusTable(title, rows) {
 const program = new Command();
 program
   .name("linkedin-admin")
-  .description("linkedin-mcp administration: auth, status, logout, logs")
+  .description("linkedin-mcp administration: auth, status, logout, logs, credential management")
   .version(PKG.version);
 
 // ── auth ─────────────────────────────────────────────────────────────────────
@@ -112,7 +123,8 @@ program
 program
   .command("auth")
   .description("Start LinkedIn OAuth 2.0 flow. Opens a browser for authorization.")
-  .action(async () => {
+  .option("--port <n>", "Local callback port (default 3000)", "3000")
+  .action(async (opts) => {
     const config = loadConfig();
     if (!config.oauth.client_id || !config.oauth.client_secret) {
       console.error(
@@ -120,13 +132,15 @@ program
         "Steps:\n" +
         "  1. Create app at https://developer.linkedin.com\n" +
         "  2. Add products: 'Sign In with LinkedIn using OpenID Connect' + 'Share on LinkedIn'\n" +
-        "  3. Set redirect URI: http://localhost:3000/callback\n" +
-        "  4. Store credentials via bw-env: LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET\n",
+        "  3. Set redirect URI: http://localhost:<port>/callback\n" +
+        "  4. Store credentials via bw-env: LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET\n" +
+        "     or: linkedin-admin client-id set <value>\n",
       );
       process.exit(1);
     }
+    const port = parseInt(opts.port, 10) || 3000;
     console.log("\nStarting LinkedIn OAuth flow...");
-    console.log(`Redirect URI : ${config.oauth.redirect_uri}`);
+    console.log(`Redirect URI : http://localhost:${port}/callback`);
     console.log(`Scopes       : ${config.oauth.scopes.join(", ")}\n`);
     try {
       const tokenData = await runOAuthFlow(config, (url) => {
@@ -134,7 +148,7 @@ program
         console.log(`  ${url}\n`);
         const { execSync } = require("child_process");
         try { execSync(`xdg-open "${url}"`, { stdio: "ignore" }); } catch { /* silent */ }
-      });
+      }, port);
       appendAdminLog(`auth success member=${tokenData.member_id} name=${tokenData.name}`);
       console.log(`\nAuthenticated: ${tokenData.name || "LinkedIn member"}`);
       console.log(`Email        : ${tokenData.email || "N/A"}`);
@@ -151,7 +165,7 @@ program
 
 program
   .command("status")
-  .description("Show current authentication status, token details, and secrets.")
+  .description("Show current authentication status, credentials, and token details.")
   .option("--json", "Output raw JSON")
   .action((opts) => {
     const config  = loadConfig();
@@ -159,16 +173,15 @@ program
     const secrets = getSecretsStatus();
 
     if (opts.json) {
-      console.log(JSON.stringify({ token: summary, secrets }, null, 2));
+      console.log(JSON.stringify({ token: summary, credentials: secrets }, null, 2));
       return;
     }
 
-    // Token section
     console.log();
-    console.log(`Local .env path: ${require("path").join(__dirname, "../.env")}`);
+    console.log(`Admin env file : ${adminEnvFilePath()}`);
     console.log();
 
-    // Secrets table
+    // Credentials table
     const rows = secrets.map((s) => ({
       variable: s.name,
       status:   s.present ? "✓ set" : "✗ missing",
@@ -183,9 +196,9 @@ program
       console.log(`Token   : valid — ${summary.name} <${summary.email}> — ${summary.days_left} days left`);
       console.log(`Expires : ${summary.expires_at}`);
     } else if (summary.present) {
-      console.log("Token   : present but EXPIRED — run 'linkedin-admin auth'");
+      console.log("Token   : present but EXPIRED — run 'linkedin-admin auth' or 'linkedin-admin token set <value>'");
     } else {
-      console.log("Token   : absent — run 'linkedin-admin auth'");
+      console.log("Token   : absent — run 'linkedin-admin auth' or 'linkedin-admin token set <value>'");
     }
     console.log();
   });
@@ -231,13 +244,70 @@ program
     console.log(`\n${urlsSummary()}\n`);
   });
 
-// ── guide ─────────────────────────────────────────────────────────────────────
+// ── client-id ─────────────────────────────────────────────────────────────────
 
-program
-  .command("guide")
-  .description("Show full admin capabilities (CLI + HTTP + Telegram).")
+const clientIdCmd = program
+  .command("client-id")
+  .description("Manage LINKEDIN_CLIENT_ID in the admin env file.");
+
+clientIdCmd
+  .command("set <value>")
+  .description("Set LINKEDIN_CLIENT_ID.")
+  .action((value) => {
+    setClientId(value);
+    console.log("\nLINKEDIN_CLIENT_ID set successfully.\n");
+  });
+
+clientIdCmd
+  .command("unset")
+  .description("Clear LINKEDIN_CLIENT_ID from the admin env file.")
   .action(() => {
-    console.log(`\n${adminHelpText()}\n`);
+    unsetClientId();
+    console.log("\nLINKEDIN_CLIENT_ID cleared.\n");
+  });
+
+// ── client-secret ─────────────────────────────────────────────────────────────
+
+const clientSecretCmd = program
+  .command("client-secret")
+  .description("Manage LINKEDIN_CLIENT_SECRET in the admin env file.");
+
+clientSecretCmd
+  .command("set <value>")
+  .description("Set LINKEDIN_CLIENT_SECRET.")
+  .action((value) => {
+    setClientSecret(value);
+    console.log("\nLINKEDIN_CLIENT_SECRET set successfully.\n");
+  });
+
+clientSecretCmd
+  .command("unset")
+  .description("Clear LINKEDIN_CLIENT_SECRET from the admin env file.")
+  .action(() => {
+    unsetClientSecret();
+    console.log("\nLINKEDIN_CLIENT_SECRET cleared.\n");
+  });
+
+// ── token ─────────────────────────────────────────────────────────────────────
+
+const tokenCmd = program
+  .command("token")
+  .description("Manage the OAuth access token directly.");
+
+tokenCmd
+  .command("set <value>")
+  .description("Set access token directly (bypasses OAuth flow, 60-day default expiry).")
+  .action((value) => {
+    setAccessToken(value);
+    console.log("\nAccess token set successfully. linkedin-mcp is ready.\n");
+  });
+
+tokenCmd
+  .command("unset")
+  .description("Clear the stored access token (same as logout).")
+  .action(() => {
+    unsetAccessToken();
+    console.log("\nAccess token cleared. Run 'linkedin-admin auth' to re-authenticate.\n");
   });
 
 module.exports = { program };

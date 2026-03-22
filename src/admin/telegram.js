@@ -6,17 +6,36 @@
  *   TELEGRAM_CHAT_IDS                — comma-separated allowed chat IDs
  *
  * Commands:
- *   /start | /help   — help text
- *   /status          — token + secrets status
- *   /health          — HTTP URLs summary
- *   /urls            — all endpoint URLs
- *   /logs [n]        — recent admin log lines (default 20)
+ *   /start | /help            — help text
+ *   /status                   — credentials + token status
+ *   /health                   — HTTP URLs summary
+ *   /urls                     — all endpoint URLs
+ *   /logs [n]                 — recent admin log lines (default 20)
+ *   /token_set <value>        — set access token directly
+ *   /token_unset              — clear access token
+ *   /client_id_set <value>    — set LINKEDIN_CLIENT_ID
+ *   /client_id_unset          — clear LINKEDIN_CLIENT_ID
+ *   /client_secret_set <v>    — set LINKEDIN_CLIENT_SECRET
+ *   /client_secret_unset      — clear LINKEDIN_CLIENT_SECRET
  */
 
 "use strict";
 
 const { ENV_VARS, resolveEnv } = require("../config");
-const { adminHelpText, appendAdminLog, getLogsText, healthSummaryText, statusSummaryText, urlsSummary } = require("./service");
+const {
+  adminHelpText,
+  appendAdminLog,
+  getLogsText,
+  healthSummaryText,
+  setAccessToken,
+  setClientId,
+  setClientSecret,
+  statusSummaryText,
+  unsetAccessToken,
+  unsetClientId,
+  unsetClientSecret,
+  urlsSummary,
+} = require("./service");
 
 const TELEGRAM_RUNTIME = {
   enabled:             false,
@@ -37,8 +56,8 @@ const TELEGRAM_RUNTIME = {
 let pollerHandle = null;
 
 function telegramAdminEnabled() {
-  const { value: token }    = resolveEnv(ENV_VARS.telegramToken);
-  const { value: chatIds }  = resolveEnv(ENV_VARS.telegramChatIds);
+  const { value: token }   = resolveEnv(ENV_VARS.telegramToken);
+  const { value: chatIds } = resolveEnv(ENV_VARS.telegramChatIds);
   return Boolean(token && chatIds);
 }
 
@@ -77,10 +96,48 @@ async function dispatchTelegramCommand(command, args) {
   if (command === "/status")                        return statusSummaryText();
   if (command === "/health")                        return healthSummaryText();
   if (command === "/urls")                          return urlsSummary();
+
   if (command === "/logs") {
     const limit = parseInt(args[0] || "20", 10);
     return getLogsText(Number.isNaN(limit) ? 20 : limit);
   }
+
+  if (command === "/token_set") {
+    const value = args[0];
+    if (!value) return "Usage: /token_set <access_token>";
+    setAccessToken(value);
+    return "Access token set successfully. linkedin-mcp is ready.";
+  }
+
+  if (command === "/token_unset") {
+    unsetAccessToken();
+    return "Access token cleared.";
+  }
+
+  if (command === "/client_id_set") {
+    const value = args[0];
+    if (!value) return "Usage: /client_id_set <client_id>";
+    setClientId(value);
+    return "LINKEDIN_CLIENT_ID set successfully.";
+  }
+
+  if (command === "/client_id_unset") {
+    unsetClientId();
+    return "LINKEDIN_CLIENT_ID cleared.";
+  }
+
+  if (command === "/client_secret_set") {
+    const value = args[0];
+    if (!value) return "Usage: /client_secret_set <client_secret>";
+    setClientSecret(value);
+    return "LINKEDIN_CLIENT_SECRET set successfully.";
+  }
+
+  if (command === "/client_secret_unset") {
+    unsetClientSecret();
+    return "LINKEDIN_CLIENT_SECRET cleared.";
+  }
+
   return "Unknown command. Use /help.";
 }
 
