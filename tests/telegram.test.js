@@ -8,20 +8,20 @@ const { dispatchTelegramCommand, telegramAdminEnabled } = require("../src/admin/
 
 describe("telegramAdminEnabled", () => {
   test("returns false when env vars are absent", () => {
-    const orig1 = process.env.TELEGRAM_LINKEDIN_TOKEN;
+    const orig1 = process.env.TELEGRAM_LINKEDIN_HOMELAB_TOKEN;
     const orig2 = process.env.TELEGRAM_CHAT_IDS;
-    delete process.env.TELEGRAM_LINKEDIN_TOKEN;
+    delete process.env.TELEGRAM_LINKEDIN_HOMELAB_TOKEN;
     delete process.env.TELEGRAM_CHAT_IDS;
     expect(telegramAdminEnabled()).toBe(false);
-    if (orig1) process.env.TELEGRAM_LINKEDIN_TOKEN = orig1;
+    if (orig1) process.env.TELEGRAM_LINKEDIN_HOMELAB_TOKEN = orig1;
     if (orig2) process.env.TELEGRAM_CHAT_IDS = orig2;
   });
 
   test("returns true when both env vars are set", () => {
-    process.env.TELEGRAM_LINKEDIN_TOKEN = "token123";
-    process.env.TELEGRAM_CHAT_IDS       = "12345";
+    process.env.TELEGRAM_LINKEDIN_HOMELAB_TOKEN = "token123";
+    process.env.TELEGRAM_CHAT_IDS               = "12345";
     expect(telegramAdminEnabled()).toBe(true);
-    delete process.env.TELEGRAM_LINKEDIN_TOKEN;
+    delete process.env.TELEGRAM_LINKEDIN_HOMELAB_TOKEN;
     delete process.env.TELEGRAM_CHAT_IDS;
   });
 });

@@ -6,6 +6,7 @@
 
 const {
   adminHelpText,
+  getSecretsStatus,
   healthSummaryText,
   statusSummaryText,
   urlsSummary,
@@ -31,7 +32,7 @@ describe("admin service helpers", () => {
   test("statusSummaryText includes service name", () => {
     const text = statusSummaryText();
     expect(text).toContain("linkedin-mcp");
-    expect(text).toContain("token");
+    expect(text).toContain("Token:");
   });
 
   test("urlsSummary includes public URL", () => {
@@ -39,5 +40,25 @@ describe("admin service helpers", () => {
     expect(text).toContain("kpihx-labs.com");
     expect(text).toContain("/health");
     expect(text).toContain("/admin/status");
+  });
+
+  test("getSecretsStatus returns array with expected secrets", () => {
+    const rows = getSecretsStatus();
+    expect(Array.isArray(rows)).toBe(true);
+    expect(rows.length).toBeGreaterThanOrEqual(2);
+    const names = rows.map((r) => r.name);
+    expect(names).toContain("LINKEDIN_CLIENT_ID");
+    expect(names).toContain("LINKEDIN_CLIENT_SECRET");
+    expect(names).toContain("TELEGRAM_LINKEDIN_HOMELAB_TOKEN");
+  });
+
+  test("getSecretsStatus rows have required fields", () => {
+    const rows = getSecretsStatus();
+    for (const row of rows) {
+      expect(typeof row.name).toBe("string");
+      expect(typeof row.present).toBe("boolean");
+      expect(typeof row.masked).toBe("string");
+      expect(typeof row.source).toBe("string");
+    }
   });
 });

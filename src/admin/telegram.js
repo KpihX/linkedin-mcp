@@ -2,12 +2,12 @@
  * linkedin-mcp — Telegram admin bridge.
  *
  * Optional admin bot activated when env vars are set:
- *   TELEGRAM_LINKEDIN_TOKEN  — bot token from @BotFather
- *   TELEGRAM_CHAT_IDS        — comma-separated allowed chat IDs
+ *   TELEGRAM_LINKEDIN_HOMELAB_TOKEN  — bot token from @BotFather
+ *   TELEGRAM_CHAT_IDS                — comma-separated allowed chat IDs
  *
  * Commands:
  *   /start | /help   — help text
- *   /status          — token + member status
+ *   /status          — token + secrets status
  *   /health          — HTTP URLs summary
  *   /urls            — all endpoint URLs
  *   /logs [n]        — recent admin log lines (default 20)
@@ -15,28 +15,31 @@
 
 "use strict";
 
+const { ENV_VARS, resolveEnv } = require("../config");
 const { adminHelpText, appendAdminLog, getLogsText, healthSummaryText, statusSummaryText, urlsSummary } = require("./service");
 
 const TELEGRAM_RUNTIME = {
-  enabled: false,
-  started: false,
-  thread_alive: false,
-  allowed_chat_ids: [],
-  allowed_chat_count: 0,
-  started_at: null,
-  last_poll_at: null,
-  last_success_at: null,
-  last_update_id: null,
-  last_chat_id: null,
-  last_command: null,
-  last_reply_preview: null,
-  last_error: null,
+  enabled:             false,
+  started:             false,
+  thread_alive:        false,
+  allowed_chat_ids:    [],
+  allowed_chat_count:  0,
+  started_at:          null,
+  last_poll_at:        null,
+  last_success_at:     null,
+  last_update_id:      null,
+  last_chat_id:        null,
+  last_command:        null,
+  last_reply_preview:  null,
+  last_error:          null,
 };
 
 let pollerHandle = null;
 
 function telegramAdminEnabled() {
-  return Boolean(process.env.TELEGRAM_LINKEDIN_TOKEN && process.env.TELEGRAM_CHAT_IDS);
+  const { value: token }    = resolveEnv(ENV_VARS.telegramToken);
+  const { value: chatIds }  = resolveEnv(ENV_VARS.telegramChatIds);
+  return Boolean(token && chatIds);
 }
 
 function telegramAdminRuntimeStatus() {
@@ -44,11 +47,11 @@ function telegramAdminRuntimeStatus() {
 }
 
 async function apiCall(method, body) {
-  const token    = process.env.TELEGRAM_LINKEDIN_TOKEN;
+  const { value: token } = resolveEnv(ENV_VARS.telegramToken);
   const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-    method: "POST",
+    method:  "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+    body:    JSON.stringify(body),
   });
   const payload = await response.json();
   if (!payload.ok) {
@@ -62,7 +65,8 @@ async function sendMessage(chatId, text) {
 }
 
 function parseAllowedChatIds() {
-  return String(process.env.TELEGRAM_CHAT_IDS || "")
+  const { value } = resolveEnv(ENV_VARS.telegramChatIds);
+  return String(value || "")
     .split(",")
     .map((v) => v.trim())
     .filter(Boolean);
