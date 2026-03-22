@@ -62,7 +62,7 @@ describe("loadConfig", () => {
 
   test("DEFAULTS has expected structure", () => {
     expect(DEFAULTS.server.http_port).toBe(8095);
-    expect(DEFAULTS.oauth.redirect_port).toBe(3000);
+    expect(DEFAULTS.oauth.redirect_port).toBe(3001);
     expect(DEFAULTS.logging.level).toBe("error");
   });
 });

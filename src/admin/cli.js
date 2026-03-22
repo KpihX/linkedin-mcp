@@ -123,7 +123,7 @@ program
 program
   .command("auth")
   .description("Start LinkedIn OAuth 2.0 flow. Opens a browser for authorization.")
-  .option("--port <n>", "Local callback port (default 3000)", "3000")
+  .option("--port <n>", "Local callback port (default 3001)", "3001")
   .action(async (opts) => {
     const config = loadConfig();
     if (!config.oauth.client_id || !config.oauth.client_secret) {
@@ -132,7 +132,7 @@ program
         "Steps:\n" +
         "  1. Create app at https://developer.linkedin.com\n" +
         "  2. Add products: 'Sign In with LinkedIn using OpenID Connect' + 'Share on LinkedIn'\n" +
-        "  3. Set redirect URI: http://localhost:<port>/callback\n" +
+        "  3. Set redirect URI: http://localhost:3001/callback\n" +
         "  4. Store credentials via bw-env: LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET\n" +
         "     or: linkedin-admin client-id set <value>\n",
       );
