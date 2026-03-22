@@ -161,16 +161,16 @@ describe("credential management (setClientSecret / unsetClientSecret)", () => {
 });
 
 describe("credential management (setAccessToken / unsetAccessToken)", () => {
-  test("setAccessToken writes token.json", () => {
-    setAccessToken("my-test-access-token");
+  test("setAccessToken writes token.json", async () => {
+    await setAccessToken("my-test-access-token");
     const tokenPath = require("path").join(TEST_STATE_DIR, "token.json");
     expect(fs.existsSync(tokenPath)).toBe(true);
     const data = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));
     expect(data.access_token).toBe("my-test-access-token");
   });
 
-  test("unsetAccessToken removes token.json", () => {
-    setAccessToken("temp-token");
+  test("unsetAccessToken removes token.json", async () => {
+    await setAccessToken("temp-token");
     unsetAccessToken();
     const tokenPath = require("path").join(TEST_STATE_DIR, "token.json");
     expect(fs.existsSync(tokenPath)).toBe(false);

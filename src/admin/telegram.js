@@ -105,7 +105,7 @@ async function dispatchTelegramCommand(command, args) {
   if (command === "/token_set") {
     const value = args[0];
     if (!value) return "Usage: /token_set <access_token>";
-    setAccessToken(value);
+    await setAccessToken(value);
     return "Access token set successfully. linkedin-mcp is ready.";
   }
 

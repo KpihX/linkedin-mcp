@@ -25,7 +25,6 @@ const { loadConfig, resolveEnv, ENV_VARS } = require("../config");
 const { tokenSummary, clearToken }         = require("../token");
 const { runOAuthFlow }                     = require("./oauth");
 const {
-  adminEnvFilePath,
   adminHelpText,
   appendAdminLog,
   getLogsText,
@@ -34,6 +33,7 @@ const {
   setAccessToken,
   setClientId,
   setClientSecret,
+  stateDir,
   statusSummaryText,
   unsetAccessToken,
   unsetClientId,
@@ -178,7 +178,7 @@ program
     }
 
     console.log();
-    console.log(`Admin env file : ${adminEnvFilePath()}`);
+    console.log(`State dir : ${stateDir()}`);
     console.log();
 
     // Credentials table
@@ -297,8 +297,8 @@ const tokenCmd = program
 tokenCmd
   .command("set <value>")
   .description("Set access token directly (bypasses OAuth flow, 60-day default expiry).")
-  .action((value) => {
-    setAccessToken(value);
+  .action(async (value) => {
+    await setAccessToken(value);
     console.log("\nAccess token set successfully. linkedin-mcp is ready.\n");
   });
 

@@ -162,10 +162,10 @@ function adminClientSecretUnsetHandler() {
 }
 
 function adminTokenSetHandler() {
-  return (req, res) => {
+  return async (req, res) => {
     const { value } = req.body || {};
     if (!value) return res.status(400).json({ ok: false, error: "Missing 'value' in request body" });
-    setAccessToken(String(value));
+    await setAccessToken(String(value));
     res.json({ ok: true, action: "token set" });
   };
 }

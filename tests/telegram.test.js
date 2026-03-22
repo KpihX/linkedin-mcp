@@ -138,7 +138,7 @@ describe("dispatchTelegramCommand — credential management", () => {
   });
 
   test("/token_unset clears the access token", async () => {
-    await dispatchTelegramCommand("/token_set", ["temp-token"]);
+    await dispatchTelegramCommand("/token_set", ["temp-token"]); // network fails gracefully
     const reply = await dispatchTelegramCommand("/token_unset", []);
     expect(reply).toContain("cleared");
     const tokenPath = path.join(TEST_STATE_DIR, "token.json");

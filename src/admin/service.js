@@ -124,11 +124,27 @@ function unsetClientSecret() {
 
 /**
  * Persist an access token directly (bypasses OAuth flow).
- * Writes to token.json with a 60-day default expiry.
+ * Does a best-effort GET /v2/userinfo to populate member_id, name, email
+ * in token.json — required for posting tools. If the fetch fails (bad token
+ * or no network), the token is still saved without profile info.
  */
-function setAccessToken(value) {
-  const config = loadConfig();
-  saveToken(config, { access_token: value, expires_in: 5184000 });
+async function setAccessToken(value) {
+  const config    = loadConfig();
+  const tokenData = { access_token: value, expires_in: 5184000 };
+
+  try {
+    const res = await fetch("https://api.linkedin.com/v2/userinfo", {
+      headers: { Authorization: `Bearer ${value}` },
+    });
+    if (res.ok) {
+      const profile = await res.json();
+      if (profile.sub)   tokenData.member_id = profile.sub;
+      if (profile.name)  tokenData.name      = profile.name;
+      if (profile.email) tokenData.email     = profile.email;
+    }
+  } catch { /* best-effort only — token is saved regardless */ }
+
+  saveToken(config, tokenData);
   appendAdminLog(`token set (${_maskValue(value)})`);
 }
 
