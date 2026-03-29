@@ -20,3 +20,4 @@ deploy/docker-compose.override.yml
 
 # Coverage
 coverage/
+.agents/
